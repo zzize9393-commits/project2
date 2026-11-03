@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>미래 해결사</title>
+<style>
+:root{
+  --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --text:#f1f5f9; --muted:#94a3b8; --line:#334155;
+  --info:#3b82f6; --env:#14b8a6; --safe:#f97316; --prod:#22c55e; --life:#ef4444; --energy:#eab308; --move:#a855f7;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;line-height:1.45}
+#app{max-width:1000px;margin:0 auto;padding:16px}
+h1,h2,h3{margin:0}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:10px 16px;font-weight:700;background:#475569;color:#fff}
+button:hover:not(:disabled){filter:brightness(1.15)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:#2563eb}
+button.good{background:#16a34a}
+button.bad{background:#dc2626}
+.center{text-align:center}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.spread{justify-content:space-between}
+.muted{color:var(--muted);font-size:.9rem}
+input[type=text]{font:inherit;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);width:100%}
+select{font:inherit;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.rules{font-size:.92rem;color:#cbd5e1;padding-left:18px;margin:8px 0}
+.rules li{margin:3px 0}
+
+.scoreboard{display:flex;gap:10px}
+.score{flex:1;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:10px 14px}
+.score.active{border-color:#60a5fa;box-shadow:0 0 0 2px rgba(96,165,250,.25)}
+.score b{font-size:1.6rem}
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:8px;padding:3px 9px;font-weight:800;font-size:.85rem;color:#fff;white-space:nowrap}
+.d-info{background:var(--info)}.d-env{background:var(--env)}.d-safe{background:var(--safe)}
+.d-prod{background:var(--prod)}.d-life{background:var(--life)}.d-energy{background:var(--energy);color:#1f1300}.d-move{background:var(--move)}
+
+.problem{display:flex;gap:16px;align-items:stretch;flex-wrap:wrap}
+.pcard{flex:1 1 320px;border-radius:14px;padding:16px;background:linear-gradient(135deg,#7c2d12,#1e3a8a);border:3px solid #3b4cc0}
+.pcard .pid{font-size:.75rem;opacity:.8}
+.pcard h2{font-size:1.4rem;margin:2px 0 8px}
+.pcard p{margin:0 0 12px;background:rgba(255,255,255,.92);color:#111827;padding:8px 10px;border-radius:8px;font-size:.92rem}
+.req{display:flex;gap:8px;flex-wrap:wrap}
+.req .chip{font-size:1rem;padding:5px 11px}
+.req .chip.done{outline:3px solid #fff}
+.pinfo{flex:0 1 220px;font-size:.9rem;color:var(--muted)}
+
+.hand{display:flex;gap:10px;flex-wrap:wrap}
+.tcard{width:170px;border-radius:12px;padding:10px;background:#0b3b46;border:3px solid #0e7490;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:transform .1s;position:relative}
+.tcard:hover{transform:translateY(-3px)}
+.tcard.sel{border-color:#fde047;transform:translateY(-8px);box-shadow:0 6px 14px rgba(253,224,71,.35)}
+.tcard .tid{font-size:.7rem;opacity:.7}
+.tcard .icon{font-size:2rem;text-align:center}
+.tcard h3{font-size:.98rem}
+.tcard .chips{display:flex;gap:5px;flex-wrap:wrap}
+.tcard p{margin:0;font-size:.78rem;background:rgba(255,255,255,.92);color:#111827;padding:6px 7px;border-radius:6px;flex:1}
+.tcard.ret{border-color:#f87171;border-style:dashed}
+.tcard.ret:hover{box-shadow:0 6px 14px rgba(248,113,113,.4)}
+.tcard.mini{width:150px;cursor:default}
+.tcard.mini:hover{transform:none}
+
+.overlay{position:fixed;inset:0;background:rgba(2,6,23,.88);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;max-width:760px;width:100%;max-height:92vh;overflow:auto}
+.modal h2{margin-bottom:10px}
+.logbox{max-height:130px;overflow:auto;font-size:.85rem;color:var(--muted)}
+.logbox div{padding:2px 0;border-bottom:1px dashed var(--line)}
+.big{font-size:3rem}
+.hidden-screen{padding:30px 10px}
+.table{width:100%;border-collapse:collapse}
+.table td,.table th{padding:8px;border-bottom:1px solid var(--line);text-align:center}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ===================== 데이터 ===================== */
+const DOMAINS = {
+  info:  {name:'정보·분석', icon:'🔍'},
+  env:   {name:'환경·회복', icon:'♻️'},
+  safe:  {name:'안전·보안', icon:'🛡️'},
+  prod:  {name:'생산·자원', icon:'📦'},
+  life:  {name:'생명·돌봄', icon:'❤️'},
+  energy:{name:'에너지',   icon:'⚡'},
+  move:  {name:'이동·로봇', icon:'🤖'}
+};
+
+// [id, 제목, 설명, 요구 분야]
+const PROBLEMS = [
+ ['P01','기후위기와 극한 날씨','폭염·폭우·태풍 같은 극한 날씨가 더 자주 겹쳐 도시와 농촌에 큰 피해가 생길 수 있다.',{info:2,env:2,safe:2}],
+ ['P02','미래 식량 부족','인구와 기후가 변하면서 모든 사람이 충분하고 건강한 식량을 얻기 어려워질 수 있다.',{prod:3,life:2}],
+ ['P03','깨끗한 물 부족','가뭄과 오염 때문에 마시고 씻고 농사짓는 데 쓸 깨끗한 물이 부족해질 수 있다.',{energy:2,prod:2,life:2}],
+ ['P04','에너지 부족','전기를 쓰는 생활과 산업은 늘지만 필요한 에너지를 안정적으로 공급하기 어려워질 수 있다.',{energy:3,safe:2}],
+ ['P05','새로운 감염병','처음 보는 감염병이 나타나 빠르게 여러 지역으로 퍼질 수 있다.',{info:2,life:2,safe:2}],
+ ['P06','초고령 사회의 건강과 돌봄','고령 인구가 크게 늘어 건강과 일상생활을 도와줄 사람과 시설이 부족해질 수 있다.',{life:3,move:2}],
+ ['P07','도시 교통 혼잡과 대기오염','도시에 사람과 차량이 몰려 이동 시간이 길어지고 공기가 더 나빠질 수 있다.',{energy:2,move:2,env:2}],
+ ['P08','자원 고갈','금속·광물·목재처럼 생활과 산업에 필요한 자원이 빠르게 줄어들 수 있다.',{energy:2,prod:2,env:2}],
+ ['P09','해양 쓰레기','바다로 흘러든 플라스틱과 버려진 어구가 해양 생태계를 계속 오염시킬 수 있다.',{info:2,move:2,env:2}],
+ ['P10','생태계 파괴','숲·습지·하천 같은 서식지가 줄어 다양한 생물이 살아갈 곳을 잃을 수 있다.',{info:3,env:3}],
+ ['P11','일자리 감소','자동화와 산업 변화로 지금의 일자리 일부가 줄고 새로운 일을 준비해야 할 수 있다.',{info:3,move:2}],
+ ['P12','개인정보 유출','온라인에 저장된 사진·위치·계정 정보가 허락 없이 다른 사람에게 넘어갈 수 있다.',{info:2,safe:3}],
+ ['P13','경제활동인구 감소','일할 수 있는 나이의 사람이 줄어 사회에 필요한 일과 서비스를 맡을 사람이 부족해질 수 있다.',{prod:2,life:2,move:2}],
+ ['P14','사이버 공격','병원·교통·전력 같은 중요한 시스템이 해킹을 받아 멈추거나 잘못 작동할 수 있다.',{info:3,safe:3}]
+];
+
+// [id, 제목, 설명, 보유 분야, 이모지]
+const TECHS = [
+ ['T01','기상 예측 인공지능','여러 지역의 기상 자료를 분석해 폭염·폭우·태풍의 발생 가능성을 예측한다.',{info:3,safe:1},'🌀'],
+ ['T02','지구관측 위성','우주에서 땅·바다·숲의 변화를 반복해서 촬영하고 비교한다.',{info:2,env:2},'🛰️'],
+ ['T03','환경 센서 네트워크','여러 장소의 공기·물·토양 상태를 계속 측정해 변화를 알려 준다.',{info:2,env:2},'📡'],
+ ['T04','질병 조기진단 바이오센서','사람의 검체에서 감염이나 질병의 징후를 빠르게 찾아낸다.',{info:2,life:2},'🧪'],
+ ['T05','사회 변화 분석 인공지능','인구·교통·산업 자료를 분석해 앞으로 부족해질 일과 서비스를 예상한다.',{info:3,prod:1},'📊'],
+ ['T06','건물 일체형 태양전지','창문이나 건물 겉면에서 햇빛을 받아 전기를 생산한다.',{energy:3,env:1},'🏢'],
+ ['T07','핵융합 발전','가벼운 원자핵이 합쳐질 때 나오는 에너지를 이용해 많은 전기를 만든다.',{energy:3,safe:1},'☀️'],
+ ['T08','그린 수소 연료전지','재생에너지로 만든 수소를 이용해 전기와 열을 생산한다.',{energy:2,move:2},'💧'],
+ ['T09','전고체 배터리','전기를 많은 양 저장했다가 이동수단이나 전력망에 공급한다.',{energy:2,safe:2},'🔋'],
+ ['T10','수직형 스마트 팜','센서와 자동 제어로 실내 여러 층에서 작물을 안정적으로 기른다.',{prod:2,info:2},'🌱'],
+ ['T11','해수 담수화 시설','바닷물에서 소금과 불순물을 걸러 깨끗한 물을 만든다.',{prod:2,energy:2},'🚰'],
+ ['T12','미생물 대체 단백질','미생물을 배양해 식품에 사용할 단백질을 생산한다.',{prod:2,life:2},'🍖'],
+ ['T13','가뭄 저항성 종자','물이 부족하거나 기온이 높은 환경에서도 자랄 가능성이 큰 작물을 만든다.',{prod:3,env:1},'🌽'],
+ ['T14','맞춤형 mRNA 백신','감염병의 특징을 분석해 필요한 백신을 빠르게 설계하고 생산한다.',{life:2,info:2},'💉'],
+ ['T15','정밀 유전자 치료','질병과 관련된 유전 정보의 특정 부분을 고치거나 작동을 조절한다.',{life:3,info:1},'🧬'],
+ ['T16','3D 바이오 인공장기','세포와 생체 재료를 층층이 쌓아 손상된 조직이나 장기를 대신할 구조를 만든다.',{life:2,prod:2},'🫀'],
+ ['T17','보행 보조 외골격','몸에 착용한 기계 장치가 다리와 관절의 움직임을 보조한다.',{life:2,move:2},'🦿'],
+ ['T18','자율주행 전기 셔틀','주변을 감지하며 여러 사람을 정해진 지역 안에서 전기로 운송한다.',{move:2,env:2},'🚌'],
+ ['T19','긴급 구호 드론','사람이 가기 어려운 곳에 의약품·식량·통신 장비를 빠르게 운반한다.',{move:2,safe:2},'🚁'],
+ ['T20','협동 작업 로봇','사람과 같은 공간에서 반복되거나 힘든 작업을 나누어 수행한다.',{move:3,prod:1},'🦾'],
+ ['T21','해양 쓰레기 수거 로봇','바다나 강을 이동하며 떠다니는 쓰레기를 찾아 모은다.',{move:2,env:2},'🌊'],
+ ['T22','공기 중 탄소 포집','공기에서 이산화탄소를 골라 모아 저장하거나 다시 사용한다.',{env:3,energy:1},'🏭'],
+ ['T23','플라스틱 분해 미생물','특정 플라스틱을 더 작은 물질로 분해할 수 있는 미생물을 이용한다.',{env:2,life:2},'🦠'],
+ ['T24','생분해성 바이오 소재','사용 후 자연에서 비교적 잘 분해되는 재료로 일회용품을 만든다.',{env:2,prod:2},'🥤'],
+ ['T25','나노막 수질 정화 필터','매우 작은 구멍이 있는 막으로 물속 오염물질과 미생물을 걸러 낸다.',{env:2,prod:2},'🧫'],
+ ['T26','생태 복원 종자 드론','접근하기 어려운 훼손 지역에 여러 토종식물의 씨앗을 골고루 뿌린다.',{env:2,move:2},'🌿'],
+ ['T27','재난 조기경보·대피 안내 시스템','위험 정보를 빠르게 전달하고 사람마다 안전한 대피 경로를 안내한다.',{safe:2,info:2},'🚨'],
+ ['T28','스마트 전력망 자동 보호 시스템','전력 사용과 고장 징후를 살펴 문제가 생긴 구간을 빠르게 분리하고 전기를 다시 배분한다.',{safe:2,energy:2},'🔌'],
+ ['T29','스마트 감염 차단 시설','공기 흐름·출입·소독을 자동으로 조절해 감염이 퍼질 가능성을 줄인다.',{safe:2,life:2},'🏥'],
+ ['T30','양자내성 정보 암호화','미래의 강력한 컴퓨터 공격에도 정보를 읽기 어렵게 만드는 암호 방식을 사용한다.',{safe:3,info:1},'🔐'],
+ ['T31','생체 인식 기술','비밀번호 대신 얼굴·지문·홍채 등을 이용해 본인만 정보를 사용할 수 있게 한다.',{info:1,safe:2},'🪪']
+];
+
+const P = id => PROBLEMS.find(p => p[0] === id);
+const T = id => TECHS.find(t => t[0] === id);
+
+/* ===================== 상태 ===================== */
+const HAND_START = 4, HAND_MAX = 6, TURNS_PER_ROUND = 3, SOLVE_MIN = 2, SOLVE_MAX = 3, PASS_FOR_REDRAW = 2;
+let G = null;
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+function startGame() {
+  const n1 = ($('#n1').value || '').trim() || '플레이어 1';
+  const n2 = ($('#n2').value || '').trim() || '플레이어 2';
+  const count = +$('#cnt').value;
+  G = {
+    names: [n1, n2], scores: [0, 0], solved: [0, 0],
+    hands: [[], []],
+    pDeck: shuffle(PROBLEMS.map(p => p[0])).slice(0, count),
+    tDeck: shuffle(TECHS.map(t => t[0])), tDiscard: [],
+    total: count, round: 0, first: 0, cur: 0, turnsTaken: [0, 0],
+    problem: null, phase: 'handoff', sel: [], modal: null, log: [], over: false, returnMode: false
+  };
+  for (let p = 0; p < 2; p++) refill(p);
+  startRound();
+}
+
+function drawCard(p) {
+  if (!G.tDeck.length) { G.tDeck = shuffle(G.tDiscard); G.tDiscard = []; }
+  if (!G.tDeck.length) return null;
+  const c = G.tDeck.pop();
+  G.hands[p].push(c);
+  return c;
+}
+function refill(p) { while (G.hands[p].length < HAND_START) if (!drawCard(p)) break; }
+function addLog(s) { G.log.unshift(s); }
+
+function startRound() {
+  if (!G.pDeck.length) { G.over = true; render(); return; }
+  G.problem = G.pDeck.pop();
+  G.round++;
+  G.turnsTaken = [0, 0];
+  G.passes = [0, 0];
+  G.cur = G.first;
+  G.sel = [];
+  G.returnMode = false;
+  G.lastFail = null;
+  G.phase = 'handoff';
+  addLog(`── 라운드 ${G.round}: ${P(G.problem)[1]} 공개 ──`);
+  render();
+}
+
+/* ===================== 판정 ===================== */
+function sumOf(ids) {
+  const s = {};
+  ids.forEach(id => { const d = T(id)[3]; for (const k in d) s[k] = (s[k] || 0) + d[k]; });
+  return s;
+}
+function evaluate(ids) {
+  const req = P(G.problem)[3];
+  const s = sumOf(ids);
+  // 수치가 모자라도, 문제가 요구하는 모든 분야에 해당하는 카드가 있으면 인정
+  const ok = Object.keys(req).every(k => (s[k] || 0) > 0);
+  // 합당 보너스: 3장 모두 문제가 요구하는 분야에 기여
+  const fit = ids.every(id => Object.keys(T(id)[3]).some(k => req[k]));
+  return { ok, fit, sums: s };
+}
+
+/* ===================== 행동 ===================== */
+function revealHand() { G.lastFail = null; G.phase = 'draw'; render(); }
+function doDraw() {
+  const c = drawCard(G.cur);
+  addLog(`${G.names[G.cur]}: 해결카드 1장 뽑음`);
+  G.phase = 'play'; render();
+}
+function skipDraw() { G.phase = 'play'; render(); }
+
+// 손패가 최대(6장)일 때, 원하는 카드 1장을 반납(버림)할 수 있음. 반납하면 차례가 바로 넘어감.
+function toggleReturn() {
+  if (G.hands[G.cur].length < HAND_MAX) return;
+  G.returnMode = !G.returnMode;
+  G.sel = [];
+  render();
+}
+function returnCard(id) {
+  const h = G.hands[G.cur], i = h.indexOf(id);
+  if (i < 0) return;
+  h.splice(i, 1);
+  G.tDiscard.push(id);
+  addLog(`${G.names[G.cur]}: 해결카드 1장 반납 (${T(id)[1]})`);
+  endTurn(); // 반납하면 바로 다음 플레이어에게 차례가 넘어감
+}
+function cardClick(id) {
+  if (G.returnMode) returnCard(id);
+  else toggleSel(id);
+}
+function toggleSel(id) {
+  if (G.phase !== 'play') return;
+  const i = G.sel.indexOf(id);
+  if (i >= 0) G.sel.splice(i, 1);
+  else if (G.sel.length < SOLVE_MAX) G.sel.push(id);
+  render();
+}
+function submit() {
+  if (G.sel.length < SOLVE_MIN || G.sel.length > SOLVE_MAX) return;
+  const r = evaluate(G.sel);
+  if (r.ok) {
+    G.modal = { type: 'success', cards: G.sel.slice(), r };
+    render();
+    return;
+  }
+  // 실패하면 확인 버튼 없이 바로 다음 플레이어에게 차례가 넘어감
+  const req = P(G.problem)[3];
+  const lack = Object.keys(req).filter(k => !(r.sums[k] > 0))
+    .map(k => DOMAINS[k].icon + ' ' + DOMAINS[k].name).join(', ');
+  G.lastFail = { name: G.names[G.cur], cards: G.sel.slice(), lack };
+  addLog(`${G.names[G.cur]}: 해결 실패 (${G.sel.map(id => T(id)[1]).join(', ')})`);
+  endTurn();
+}
+function passTurn() {
+  G.passes[G.cur]++;
+  addLog(`${G.names[G.cur]}: 차례를 넘김 (${G.passes[G.cur]}회)`);
+  endTurn();
+}
+// 두 플레이어 모두 차례를 2번 이상 넘겼을 때만 문제카드를 다시 뽑을 수 있음
+function canRedraw() {
+  return G.pDeck.length > 0 && G.passes[0] >= PASS_FOR_REDRAW && G.passes[1] >= PASS_FOR_REDRAW;
+}
+function redrawProblem() {
+  if (!canRedraw()) return;
+  const old = P(G.problem)[1];
+  G.problem = G.pDeck.pop();
+  G.turnsTaken = [0, 0];
+  G.passes = [0, 0];
+  G.sel = [];
+  addLog(`${G.names[G.cur]}: 문제카드 교체 (${old} → ${P(G.problem)[1]})`);
+  render();
+}
+function endTurn() {
+  G.turnsTaken[G.cur]++;
+  G.sel = [];
+  G.returnMode = false;
+  if (G.turnsTaken[0] >= TURNS_PER_ROUND && G.turnsTaken[1] >= TURNS_PER_ROUND) {
+    G.modal = { type: 'unsolved' };
+    render(); return;
+  }
+  G.cur = 1 - G.cur;
+  G.phase = 'handoff';
+  render();
+}
+function successOk(explained) {
+  const m = G.modal, p = G.cur;
+  let pts = 3 + (m.r.fit ? 1 : 0) + (explained ? 1 : 0);
+  G.scores[p] += pts; G.solved[p]++;
+  addLog(`${G.names[p]}: ${P(G.problem)[1]} 해결! +${pts}점`);
+  // 사용한 카드 버림
+  m.cards.forEach(id => { G.hands[p].splice(G.hands[p].indexOf(id), 1); G.tDiscard.push(id); });
+  G.modal = null;
+  nextRound(1 - p); // 성공해도 차례는 다음 플레이어에게 넘어감
+}
+function unsolvedOk() { G.modal = null; addLog(`${P(G.problem)[1]}: 미해결`); nextRound(1 - G.cur); }
+// 다음 라운드는 마지막으로 차례를 가진 플레이어의 상대부터 시작
+function nextRound(nextFirst) {
+  for (let p = 0; p < 2; p++) refill(p);
+  G.first = nextFirst;
+  startRound();
+}
+
+/* ===================== 렌더링 ===================== */
+function chip(k, v, extra = '') { return `<span class="chip d-${k} ${extra}">${DOMAINS[k].icon} ${DOMAINS[k].name} ${v}</span>`; }
+function chips(obj) { return Object.keys(obj).map(k => chip(k, obj[k])).join(''); }
+function techCard(id, o = {}) {
+  const t = T(id);
+  return `<div class="tcard ${o.sel ? 'sel' : ''} ${o.mini ? 'mini' : ''} ${o.ret ? 'ret' : ''}" ${o.click ? `onclick="cardClick('${id}')"` : ''}>
+    <div class="tid">${t[0]}</div><div class="icon">${t[4]}</div><h3>${esc(t[1])}</h3>
+    <div class="chips">${chips(t[3])}</div><p>${esc(t[2])}</p></div>`;
+}
+
+function render() {
+  const app = $('#app');
+  if (!G) return renderStart(app);
+  if (G.over) return renderEnd(app);
+
+  const pr = P(G.problem), cur = G.cur;
+  const sums = sumOf(G.sel);
+  const reqHtml = Object.keys(pr[3]).map(k => {
+    const have = sums[k] || 0;
+    return `<span class="chip d-${k} ${have > 0 ? 'done' : ''}" style="font-size:1rem;padding:5px 11px">${DOMAINS[k].icon} ${DOMAINS[k].name} ${G.phase === 'play' ? have + ' / ' : ''}${pr[3][k]}</span>`;
+  }).join('');
+
+  let html = `
+  <div class="row spread" style="margin-bottom:12px">
+    <h1>🌍 미래 해결사</h1>
+    <span class="muted">라운드 ${G.round} / ${G.total} · 남은 문제 ${G.pDeck.length}장 · 해결 덱 ${G.tDeck.length}장</span>
+  </div>
+  <div class="scoreboard" style="margin-bottom:14px">
+    ${[0, 1].map(i => `<div class="score ${cur === i ? 'active' : ''}">
+      <div class="muted">${esc(G.names[i])}${G.first === i ? ' · 선 플레이어' : ''}</div>
+      <b>${G.scores[i]}점</b> <span class="muted">해결 ${G.solved[i]} · 손패 ${G.hands[i].length} · 차례 ${G.turnsTaken[i]}/${TURNS_PER_ROUND} · 넘김 ${G.passes[i]}</span>
+    </div>`).join('')}
+  </div>
+  <div class="panel problem">
+    <div class="pcard">
+      <div class="pid">${pr[0]}</div><h2>${esc(pr[1])}</h2><p>${esc(pr[2])}</p>
+      <div class="muted" style="color:#e2e8f0;margin-bottom:6px">필요한 분야 (흰 테두리 = 선택한 카드가 해당 분야를 채움)</div>
+      <div class="req">${reqHtml}</div>
+    </div>
+    <div class="pinfo">
+      <b style="color:var(--text)">이번 라운드</b><br>
+      해결카드 <b>2장 또는 3장</b>을 내서 <b>모든 요구 분야</b>에 해당하면 성공! (수치는 모자라도 인정)<br><br>
+      <div class="logbox">${G.log.slice(0, 12).map(l => `<div>${esc(l)}</div>`).join('')}</div>
+    </div>
+  </div>`;
+
+  if (G.phase === 'handoff') {
+    if (G.lastFail) {
+      const f = G.lastFail;
+      html += `<div class="panel center">
+        <h3>❌ ${esc(f.name)}님의 도전 결과: 실패</h3>
+        <p class="muted">부족한 분야: ${f.lack}</p>
+        <div class="hand" style="justify-content:center">${f.cards.map(id => techCard(id, { mini: true })).join('')}</div>
+        <p>카드는 손패로 돌아갔고, 차례가 자동으로 넘어왔어요.</p>
+      </div>`;
+    }
+    html += `<div class="panel center hidden-screen">
+      <div class="big">🔒</div>
+      <h2>${esc(G.names[cur])}님의 차례입니다</h2>
+      <p class="muted">상대방은 화면을 보지 마세요.<br>준비되면 아래 버튼을 눌러 내 손패를 확인하세요.</p>
+      <button class="primary" onclick="revealHand()">내 손패 보기</button>
+    </div>`;
+  } else {
+    const hand = G.hands[cur].slice().sort();
+    let actions = '';
+    const full = G.hands[cur].length >= HAND_MAX;
+    const retBtn = full ? `<button class="${G.returnMode ? 'bad' : ''}" onclick="toggleReturn()">${G.returnMode ? '반납 취소' : '🗑️ 카드 1장 반납하기'}</button>` : '';
+    const retHint = G.returnMode ? '<div style="margin-top:8px;color:#fca5a5;font-weight:700">반납할 카드를 눌러 주세요. 반납한 카드는 버림 더미로 갑니다. 반납하면 차례가 바로 다음 플레이어에게 넘어가요.</div>' : '';
+    if (G.phase === 'draw') {
+      const can = G.hands[cur].length < HAND_MAX && (G.tDeck.length || G.tDiscard.length);
+      actions = `<div class="row"><button class="primary" onclick="doDraw()" ${can ? '' : 'disabled'}>🃏 해결카드 1장 뽑기</button>
+        <button onclick="skipDraw()">뽑지 않고 진행</button>
+        ${retBtn}
+        <span class="muted">${can ? '' : `손패가 ${HAND_MAX}장이면 더 뽑을 수 없어요. 카드를 반납하면 차례가 넘어갑니다.`}</span></div>${retHint}`;
+    } else {
+      actions = `<div class="row">
+        <button class="good" onclick="submit()" ${G.sel.length >= SOLVE_MIN ? '' : 'disabled'}>✅ ${G.sel.length >= SOLVE_MIN ? G.sel.length + '장으로 ' : ''}해결 도전 (${G.sel.length}장 선택, 2~3장)</button>
+        <button onclick="passTurn()">차례 넘기기</button>
+        ${retBtn}
+        ${canRedraw() ? `<button class="bad" onclick="redrawProblem()">🔄 문제카드 다시 뽑기</button>` : ''}
+        <span class="muted">실패하면 다음 플레이어가 카드를 뽑습니다.</span></div>
+        ${canRedraw() ? '<div class="muted" style="margin-top:8px">두 플레이어 모두 차례를 2번 이상 넘겨서 문제카드를 교체할 수 있어요. 교체하면 현재 문제는 버려지고 도전 횟수가 초기화됩니다.</div>' : ''}${retHint}`;
+    }
+    html += `<div class="panel">
+      <div class="row spread" style="margin-bottom:10px"><h3>${esc(G.names[cur])}님의 손패</h3><span class="muted">${G.returnMode ? '반납할 카드를 선택하세요' : '카드를 눌러 2~3장을 고르세요'}</span></div>
+      <div class="hand">${hand.map(id => techCard(id, { sel: G.sel.includes(id), click: G.phase === 'play' || G.returnMode, ret: G.returnMode })).join('')}</div>
+      <div style="margin-top:14px">${actions}</div>
+    </div>`;
+  }
+
+  if (G.modal) html += renderModal();
+  app.innerHTML = html;
+}
+
+function renderModal() {
+  const m = G.modal, pr = P(G.problem), name = esc(G.names[G.cur]);
+  const cards = m.cards ? `<div class="hand" style="margin:10px 0">${m.cards.map(id => techCard(id, { mini: true })).join('')}</div>` : '';
+  if (m.type === 'success') {
+    const base = 3 + (m.r.fit ? 1 : 0);
+    return `<div class="overlay"><div class="modal center">
+      <div class="big">🎉</div><h2>${name}님, 문제 해결 성공!</h2>${cards}
+      <table class="table"><tr><td>문제 해결</td><td>+3</td></tr>
+      <tr><td>알맞은 조합 보너스 <span class="muted">(낸 카드 모두 문제의 요구 분야에 기여)</span></td><td>${m.r.fit ? '+1' : '0'}</td></tr></table>
+      <p style="margin-top:14px"><b>💬 설명 보너스 (+1)</b><br>
+      낸 카드 중 하나가 이 문제를 어떻게 해결하는지 카드 설명을 바탕으로 한 문장으로 말해 보세요.<br>
+      <span class="muted">상대 플레이어가 납득하면 보너스를 받습니다. (현재 ${base}점)</span></p>
+      <div class="row" style="justify-content:center">
+        <button class="good" onclick="successOk(true)">상대가 인정함 (+1)</button>
+        <button onclick="successOk(false)">설명 없이 넘어가기</button>
+      </div></div></div>`;
+  }
+  if (m.type === 'unsolved') {
+    return `<div class="overlay"><div class="modal center">
+      <div class="big">⏳</div><h2>미해결!</h2>
+      <p>두 플레이어 모두 ${TURNS_PER_ROUND}번씩 도전했지만 <b>${esc(pr[1])}</b> 문제를 풀지 못했어요.<br>문제카드는 버려지고 아무도 점수를 얻지 못합니다.</p>
+      <button class="primary" onclick="unsolvedOk()">다음 라운드</button></div></div>`;
+  }
+  return '';
+}
+
+function renderStart(app) {
+  app.innerHTML = `<div class="panel" style="max-width:560px;margin:30px auto">
+    <h1 class="center">🌍 미래 해결사</h1>
+    <p class="center muted">미래 문제를 해결카드 2~3장으로 풀어내는 2인용 카드 게임</p>
+    <div class="row" style="margin:14px 0">
+      <div style="flex:1"><label class="muted">플레이어 1</label><input id="n1" type="text" placeholder="플레이어 1" maxlength="12"></div>
+      <div style="flex:1"><label class="muted">플레이어 2</label><input id="n2" type="text" placeholder="플레이어 2" maxlength="12"></div>
+    </div>
+    <div class="row" style="margin-bottom:14px"><label>문제 수</label>
+      <select id="cnt"><option value="14">14장 (정식)</option><option value="7">7장 (짧은 게임)</option></select></div>
+    <b>규칙 요약</b>
+    <ul class="rules">
+      <li>시작할 때 해결카드 4장씩. 문제 덱에서 한 장을 공개하며 라운드가 시작됩니다.</li>
+      <li>선 플레이어부터 차례마다 해결카드를 1장 뽑을 수 있습니다(손패 최대 ${HAND_MAX}장). 손패가 ${HAND_MAX}장이면 원하는 카드 1장을 반납(버림)할 수 있고, 반납하면 차례가 바로 다음 플레이어에게 넘어갑니다.</li>
+      <li>해결 도전은 <b>카드 2장 또는 3장</b>. 문제가 요구하는 모든 분야에 해당하는 카드가 있으면 성공(+3점). 분야별 수치가 모자라도 인정됩니다.</li>
+      <li>낸 카드가 모두 문제와 관련된 분야면 알맞은 조합 +1, 카드 설명을 상대가 인정하면 설명 +1.</li>
+      <li>해결 도전을 하면 성공이든 실패든 차례가 다음 플레이어에게 넘어갑니다. 실패하면 카드는 손패로 돌아가고, 성공하면 다음 라운드를 상대 플레이어부터 시작합니다.</li>
+      <li><b>두 플레이어 모두 차례를 2번 이상 넘기면</b> 문제카드를 다시 뽑아 교체할 수 있습니다. (현재 문제는 버려지고, 도전 횟수가 초기화됩니다)</li>
+      <li>각자 ${TURNS_PER_ROUND}번씩 도전해도 못 풀면 미해결로 문제카드를 버립니다.</li>
+      <li>문제 덱이 떨어지면 종료! 점수가 높은 사람이 승리(동점이면 해결 수).</li>
+    </ul>
+    <div class="center"><button class="primary" onclick="startGame()">게임 시작</button></div>
+  </div>`;
+}
+
+function renderEnd(app) {
+  const [a, b] = G.scores;
+  let w;
+  if (a !== b) w = a > b ? 0 : 1;
+  else if (G.solved[0] !== G.solved[1]) w = G.solved[0] > G.solved[1] ? 0 : 1;
+  else w = -1;
+  app.innerHTML = `<div class="panel center" style="max-width:560px;margin:30px auto">
+    <div class="big">${w < 0 ? '🤝' : '🏆'}</div>
+    <h1>${w < 0 ? '공동 승리!' : esc(G.names[w]) + ' 승리!'}</h1>
+    <table class="table" style="margin:14px 0">
+      <tr><th></th><th>${esc(G.names[0])}</th><th>${esc(G.names[1])}</th></tr>
+      <tr><td>점수</td><td>${a}</td><td>${b}</td></tr>
+      <tr><td>해결한 문제</td><td>${G.solved[0]}</td><td>${G.solved[1]}</td></tr>
+    </table>
+    <button class="primary" onclick="G=null;render()">다시 하기</button>
+  </div>`;
+}
+
+render();
+</script>
+</body>
+</html>
